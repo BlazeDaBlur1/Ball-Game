@@ -1,0 +1,8 @@
+public class BallHunt {
+
+	public static void main(String[] args) {
+		Game game = new Game("Ball Hunt v0.1", 1000, 750);
+		game.start();
+	}
+
+}
