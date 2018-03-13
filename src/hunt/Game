@@ -1,0 +1,320 @@
+import java.awt.Color;
+import java.awt.Font;
+import java.awt.Graphics;
+import java.awt.image.BufferStrategy;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.Random;
+import java.util.Set;
+
+import hunt.ball.Ball;
+import hunt.ball.Coin;
+import hunt.ball.Player;
+import hunt.display.Display;
+import hunt.manager.KeyManager;
+import hunt.manager.MouseManager;
+
+public class Game implements Runnable {
+
+	private boolean running = false;
+	
+	private Display display;
+	
+	private KeyManager keyManager;
+	private MouseManager mouseManager;
+	
+	private Thread thread;
+	
+	private Graphics g;
+	private BufferStrategy bs;
+	
+	private int width, height;
+	
+	private static Random random = new Random();
+	
+	private ArrayList<Player> players = new ArrayList<>();
+	private ArrayList<Ball> balls = new ArrayList<Ball>();
+	
+	private int lvl = 0, xp = 0, x = 10, y = 10, money = 0;
+	
+	SpecialAbility teleport = new SpecialAbility("Teleport", 15);
+	boolean canTeleport = false;
+	
+	final String lexicon = "ABCDEFGHIJKLMNOPQRSTUVWXYZ12345674890";
+	
+	final Set<String> identifiers = new HashSet<String>();
+	
+	public String randomIdentifier() {
+	    StringBuilder builder = new StringBuilder();
+	    while(builder.toString().length() == 0) {
+	        int length = random.nextInt(5)+5;
+	        for(int i = 0; i < length; i++) {
+	            builder.append(lexicon.charAt(random.nextInt(lexicon.length())));
+	        }
+	        if(identifiers.contains(builder.toString())) {
+	            builder = new StringBuilder();
+	        }
+	    }
+	    return builder.toString();
+	}
+	
+	private void init() {
+		for(int i=0; i<8; i++) { // 8 players
+			String name = randomIdentifier();
+			xp = 0;
+			lvl = 1;
+			x = random.nextInt(1000);
+			y = random.nextInt(750);
+			money = random.nextInt(lvl)+1;
+			Player player = new Player(name, lvl, xp, x, y, money);
+			System.out.println(name + ", " + lvl + ", " + xp + ", " + x + ", " + y + ", and " + money);
+			players.add(player);
+		}
+		
+		for(int i=0; i < 20; i++) { // 20 balls
+			String name = randomIdentifier();
+			int moneyWorth = random.nextInt(20);
+			int bX = random.nextInt(1000);
+			int bY = random.nextInt(750);
+			System.out.println(name + ", " + moneyWorth + ", " + bX + ", and " + bY);
+			balls.add(new Ball(new Coin(name, moneyWorth), bX, bY, false));
+		}
+	}
+	
+	int ballOn = 0;
+	
+	private void tick() {
+		keyManager.tick();
+		if(keyManager.down && players.get(0).getY()+1 <= 750) {
+			players.get(0).setY(players.get(0).getY()+1);
+		}
+		if(keyManager.up && players.get(0).getY()-1 >= 0) {
+			players.get(0).setY(players.get(0).getY()-1);
+		}
+		if(keyManager.right && players.get(0).getX()+1 <= 1000) {
+			players.get(0).setX(players.get(0).getX()+1);
+		}
+		if(keyManager.left && players.get(0).getX()-1 >= 0) {
+			players.get(0).setX(players.get(0).getX()-1);
+		}
+		for(int i=0; i<balls.size(); i++) {
+			ballOn = i;
+			for(int p=0; p<players.size(); p++) {
+				if(i==balls.size()) {
+					i--;
+				}
+				if(players.get(p).getX() == balls.get(i).getX() && players.get(p).getY() == balls.get(i).getY()) {
+					players.get(p).setMoney(players.get(p).getMoney() + balls.get(i).getCoin().getMoneyWorth());
+					balls.get(i).getCoin().setMoneyWorth(0);
+					balls.get(i).setLooted(true);
+					balls.remove(i);
+				}
+			}
+		}
+		if(canTeleport && keyManager.tp && players.get(0).getLvl() >= 3) {
+			if(mouseManager.isLeftPressed()) {
+				players.get(0).setX(mouseManager.getMouseX());
+				players.get(0).setY(mouseManager.getMouseY());
+				canTeleport = false;
+			}
+		}
+		if(players.get(0).getMoney() >= 50 && players.get(0).getLvl() == 1) {
+			players.get(0).setLvl(2);
+		} if(players.get(0).getMoney() >= 100 && players.get(0).getLvl() == 2) {
+			players.get(0).setLvl(3);
+		}
+		if(players.get(0).getX() >= 950 && players.get(0).getY() <= 50) {
+			players.get(0).setMoney(players.get(0).getMoney()+1);
+		}
+	}
+	
+	private void renderGame() {
+		bs = display.getCanvas().getBufferStrategy();
+		if(bs == null){
+			display.getCanvas().createBufferStrategy(3);
+			return;
+		}
+		g = bs.getDrawGraphics();
+		//Clear Screen
+		g.clearRect(0, 0, width, height);
+		//Draw Here!
+		
+		g.setFont(new Font("Arial", Font.PLAIN, 12));
+		
+		// the game
+		g.setColor(Color.BLACK);
+		g.fillRect(0, 0, width, height);
+		
+		g.setColor(Color.BLUE);
+		g.drawString(players.get(0).getName(), players.get(0).getX(), players.get(0).getY()-5);
+		g.fillRect(players.get(0).getX(), players.get(0).getY(), 2, 2);
+		g.drawString("[" + players.get(0).getLvl() + "*]" + players.get(0).getName() + " has $" + players.get(0).getMoney(), 10, 10);
+		
+		for(int i=0; i<balls.size(); i++) {
+			g.setColor(Color.yellow);
+			g.drawString(i+1 + "", balls.get(i).getX(), balls.get(i).getY()-5);
+			g.fillRect(balls.get(i).getX(), balls.get(i).getY(), 2, 2);
+			if(i>=1) {
+				g.drawLine(balls.get(i-1).getX(), balls.get(i-1).getY(), balls.get(i).getX(), balls.get(i).getY());
+			}
+			if(i==0 || i==balls.size()) {
+				g.setColor(Color.green);
+				g.drawOval(balls.get(i).getX()-2, balls.get(i).getY()-2, 5, 5);
+			}
+			if(i==0) {
+				g.drawLine(balls.get(i).getX(), balls.get(i).getY(), balls.get(balls.size()-1).getX(), balls.get(balls.size()-1).getY());
+			}
+		}
+		
+		g.setColor(Color.magenta);
+		if(canTeleport) {
+			g.drawString("You can teleport! Press T", 800, 10);
+		} else {
+			g.drawString("You can't teleport. :(", 800, 10);
+		}
+		
+		//End Drawing!
+		bs.show();
+		g.dispose();
+	}
+	
+	private void renderIntro() {
+		bs = display.getCanvas().getBufferStrategy();
+		if(bs == null){
+			display.getCanvas().createBufferStrategy(3);
+			return;
+		}
+		g = bs.getDrawGraphics();
+		//Clear Screen
+		g.clearRect(0, 0, width, height);
+		//Draw Here!
+		
+		// the introduction
+		g.setColor(Color.BLACK);
+		g.fillRect(0, 0, width, height);
+		
+		g.setColor(Color.white);
+		g.fillRect(400, 300, 200, 100);
+		g.setColor(Color.LIGHT_GRAY);
+		g.setFont(new Font("Arial", Font.BOLD, 28));
+		
+		//End Drawing!
+		bs.show();
+		g.dispose();
+	}
+	
+	private String renderOn() {
+		if(this.equals("Intro") && 
+				mouseManager.getMouseX() >= 400 && mouseManager.getMouseX() <= 600 &&
+				mouseManager.getMouseY() >= 300 && mouseManager.getMouseY() <= 400 &&
+				mouseManager.isLeftPressed()) {
+			System.out.println("Should be rendering the game");
+			return "Game";
+		} else {
+			return "Game";
+		}
+	}
+	
+	private void render() {
+		bs = display.getCanvas().getBufferStrategy();
+		if(bs == null){
+			display.getCanvas().createBufferStrategy(3);
+			return;
+		}
+		g = bs.getDrawGraphics();
+		//Clear Screen
+		g.clearRect(0, 0, width, height);
+		//Draw Here!
+		
+		// the introduction
+		if(renderOn().equals("Intro")) {
+			renderIntro();
+			System.out.println("Rendering intro: renderOn() = " + renderOn());
+		}
+		
+		// the game
+		if(renderOn().equals("Game")) {
+			renderGame();
+			System.out.println("Rendering game: renderOn() = " + renderOn());
+		}
+		
+		//End Drawing!
+		bs.show();
+		g.dispose();
+	}
+	
+	public Game(String title, int width, int height) {
+		keyManager = new KeyManager();
+		mouseManager = new MouseManager();
+		this.width = width;
+		this.height = height;
+		display = new Display(title, width, height);
+		display.getFrame().addKeyListener(keyManager);
+		display.getFrame().addMouseListener(mouseManager);
+		display.getFrame().addMouseMotionListener(mouseManager);
+		display.getCanvas().addMouseListener(mouseManager);
+		display.getCanvas().addMouseMotionListener(mouseManager);
+	}
+	
+	public void run(){
+		
+		init();
+		
+		int fps = 60;
+		double timePerTick = 1000000000 / fps;
+		double delta = 0;
+		long now;
+		long lastTime = System.nanoTime();
+		long timer = 0;
+		int ticks = 0;
+		
+		long tpTime = System.currentTimeMillis();
+		
+		while(running){
+			now = System.nanoTime();
+			delta += (now - lastTime) / timePerTick;
+			timer += now - lastTime;
+			if(System.currentTimeMillis() - tpTime >= teleport.getCoolDown()*1000 && players.get(0).getLvl() >= 3) {
+				canTeleport = true;
+				tpTime = System.currentTimeMillis();
+			}
+			lastTime = now;
+			
+			if(delta >= 1){
+				tick();
+				render();
+				ticks++;
+				delta--;
+			}
+			
+			if(timer >= 1000000000){
+				System.out.println("Ticks and Frames: " + ticks);
+				ticks = 0;
+				timer = 0;
+			}
+		}
+		
+		stop();
+		
+	}
+	
+	public synchronized void start(){
+		if(running)
+			return;
+		running = true;
+		thread = new Thread(this);
+		thread.start();
+	}
+	
+	public synchronized void stop(){
+		if(!running)
+			return;
+		running = false;
+		try {
+			thread.join();
+		} catch (InterruptedException e) {
+			e.printStackTrace();
+		}
+	}
+
+}
