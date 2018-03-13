@@ -1,0 +1,27 @@
+public class Coin {
+
+	private String name;
+	private int moneyWorth;
+	
+	public String getName() {
+		return name;
+	}
+
+	public void setName(String name) {
+		this.name = name;
+	}
+
+	public int getMoneyWorth() {
+		return moneyWorth;
+	}
+
+	public void setMoneyWorth(int moneyWorth) {
+		this.moneyWorth = moneyWorth;
+	}
+
+	public Coin(String name, int moneyWorth) {
+		this.name = name;
+		this.moneyWorth = moneyWorth;
+	}
+
+}
