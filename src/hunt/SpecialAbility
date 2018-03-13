@@ -1,0 +1,29 @@
+public class SpecialAbility {
+
+	String name;
+	int coolDown;
+	
+	public SpecialAbility(String name, int coolDown) {
+		this.name = name;
+		this.coolDown = coolDown;
+	}
+
+	public String getName() {
+		return name;
+	}
+
+	public void setName(String name) {
+		this.name = name;
+	}
+
+	public int getCoolDown() {
+		return coolDown;
+	}
+
+	public void setCoolDown(int coolDown) {
+		this.coolDown = coolDown;
+	}
+	
+	
+
+}
